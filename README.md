@@ -6,7 +6,7 @@ This is a project for the experimental implementation of WiFi Indoor Positioning
 Original version is developed with Node.js<br>
 https://github.com/chromato99/WiFi_Positioning_Server
 
-This is an app repository for server, and the client implementation can be found at the link below.<br>
+This is a repository for server, and the client implementation can be found at the link below.<br>
 Client App : https://github.com/chromato99/WiFi_Positining 
 
 # Tech Stack
