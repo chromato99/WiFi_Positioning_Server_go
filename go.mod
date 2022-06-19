@@ -1,4 +1,4 @@
-module wifi-positioning/server
+module github.com/chromato99/WiFi_Positioning_Server_go
 
 go 1.18
 
