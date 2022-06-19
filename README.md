@@ -1,7 +1,7 @@
 # WiFi_Positioning_Server_go
 
-Gachon Univefrsity Sensor and Wireless Network Class Term Project.<br>
-This is a project for the experimental implementation of WiFi Indoor Positioning technology with <b>golang</b>.
+<b>Golang</b> conversion of Gachon Univefrsity Sensor and Wireless Network Class Term Project.<br>
+This is a project for the experimental implementation of WiFi Indoor Positioning technology and golang.
 
 Original version is developed with Node.js<br>
 https://github.com/chromato99/WiFi_Positioning_Server
