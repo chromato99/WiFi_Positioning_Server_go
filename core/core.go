@@ -10,6 +10,8 @@ import (
 	"os"
 	"sort"
 
+	"github.com/chromato99/WiFi_Positioning_Server_go/result"
+
 	"github.com/gin-gonic/gin"
 	"github.com/go-sql-driver/mysql"
 )
@@ -25,14 +27,6 @@ type PosData struct {
 type WifiData struct {
 	Mac string `json:"mac"`
 	Rss int    `json:"rss"`
-}
-
-type ResultData struct {
-	Id       int
-	Position string
-	Count    int
-	Avg      float64
-	Ratio    float64
 }
 
 type DBData struct {
@@ -219,7 +213,7 @@ func FindPosition(c *gin.Context) {
 	}
 
 	// The part that calls the position estimation operation
-	ch := make(chan []ResultData)
+	ch := make(chan []*result.ResultData)
 	slice_len := int(math.Ceil(float64(len(db_pos_arr)) / 3))
 
 	for i := 0; i < 2; i++ {
@@ -227,7 +221,7 @@ func FindPosition(c *gin.Context) {
 	}
 	go CalcPos(db_pos_arr[slice_len*2:], newData, 0.6, ch)
 
-	var result_arr []ResultData
+	var result_arr []*result.ResultData
 	for i := 0; i < 3; i++ {
 		result_arr = append(result_arr, <-ch...)
 	}
@@ -241,11 +235,11 @@ func FindPosition(c *gin.Context) {
 	})
 }
 
-func CalcPos(DBPos []DBData, inputPos PosData, margin float64, ch chan []ResultData) {
-	var result_arr []ResultData
+func CalcPos(DBPos []DBData, inputPos PosData, margin float64, ch chan []*result.ResultData) {
+	var result_list result.ResultList
 
 	for _, pos := range DBPos {
-		result := ResultData{Id: pos.Id, Position: pos.Position, Count: 0, Avg: 0, Ratio: 0}
+		result := &result.ResultData{Id: pos.Id, Position: pos.Position, Count: 0, Avg: 0, Ratio: 0}
 		var sum int = 0
 
 		for _, wifi_data := range pos.WifiData {
@@ -259,17 +253,15 @@ func CalcPos(DBPos []DBData, inputPos PosData, margin float64, ch chan []ResultD
 		}
 		result.Avg = float64(sum) / float64(result.Count)
 		result.Ratio = result.Avg / float64(result.Count)
-		result_arr = append(result_arr, result)
+		result_list.Push(result)
 	}
 
-	sort.Slice(result_arr, func(i, j int) bool {
-		return result_arr[i].Count > result_arr[j].Count
-	})
-	largest_count := result_arr[0].Count
-	var top_result_arr []ResultData
-	for i := 0; i < len(result_arr) && float64(result_arr[i].Count) > (float64(largest_count)*margin); i++ {
-		top_result_arr = append(top_result_arr, result_arr[i])
+	largest_count := result_list[0].Count
+	var top_result_arr []*result.ResultData
+	for i, result := 0, result_list.Pop().(*result.ResultData); i < len(result_list) && float64(result.Count) > (float64(largest_count)*margin); i++ {
+		top_result_arr = append(top_result_arr, result)
 	}
+
 	sort.Slice(top_result_arr, func(i, j int) bool {
 		return top_result_arr[i].Ratio < top_result_arr[j].Ratio
 	})
@@ -277,7 +269,7 @@ func CalcPos(DBPos []DBData, inputPos PosData, margin float64, ch chan []ResultD
 	ch <- top_result_arr
 }
 
-func CalcKnn(result_arr []ResultData, k int) ResultData {
+func CalcKnn(result_arr []*result.ResultData, k int) *result.ResultData {
 	k_count := make(map[string]int)
 	for i := 0; i < k && i < len(result_arr); i++ {
 		if _, ok := k_count[result_arr[i].Position]; ok {
@@ -287,7 +279,7 @@ func CalcKnn(result_arr []ResultData, k int) ResultData {
 		}
 	}
 
-	best_result := ResultData{
+	best_result := &result.ResultData{
 		Id:       0,
 		Position: "not found",
 		Count:    0,
@@ -305,7 +297,11 @@ func CalcKnn(result_arr []ResultData, k int) ResultData {
 		}
 	}
 
-	fmt.Println(result_arr[:k])
+	if k < len(k_count) {
+		fmt.Println(result_arr[:k])
+	} else {
+		fmt.Println(result_arr)
+	}
 
 	return best_result
 }
