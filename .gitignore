@@ -1,4 +1,5 @@
 db-config.json
+password.json
 
 # Binaries for programs and plugins
 *.exe
