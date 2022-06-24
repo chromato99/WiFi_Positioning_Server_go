@@ -11,6 +11,7 @@ import (
 	"sort"
 
 	"github.com/chromato99/WiFi_Positioning_Server_go/result"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-sql-driver/mysql"
@@ -33,6 +34,45 @@ type DBData struct {
 	Id       int
 	Position string
 	WifiData []WifiData
+}
+
+type Passwd struct {
+	Key string `json:"key"`
+}
+
+func OpenDB(c *gin.Context) (*sql.DB, error) {
+	// Reading db configuration information file
+	db_config_file, err := os.Open(db_config_path)
+	if err != nil {
+		return nil, err
+	}
+
+	db_config_byte, err := ioutil.ReadAll(db_config_file)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert json format to golang map format
+	var db_config map[string]string
+	json.Unmarshal(db_config_byte, &db_config)
+
+	// db settings
+	cfg := mysql.Config{
+		User:                 db_config["User"],
+		Passwd:               db_config["Passwd"],
+		Net:                  db_config["Net"],
+		Addr:                 db_config["Addr"],
+		DBName:               db_config["DBName"],
+		AllowNativePasswords: true,
+	}
+
+	// open mysql db
+	db, dberror := sql.Open("mysql", cfg.FormatDSN())
+	if dberror != nil {
+		return nil, err
+	}
+
+	return db, nil
 }
 
 // Returns the received Wi-Fi data for the test.
@@ -69,68 +109,67 @@ func AddData(c *gin.Context) {
 	fmt.Println(newData)
 	wifi_data, _ := json.Marshal(newData.WifiData)
 
-	// Reading db configuration information file
-	db_config_file, err := os.Open(db_config_path)
+	// Reading hashed password file
+	password_file, err := os.Open("./core/password.json")
 	if err != nil {
+		//Handle Error
 		c.IndentedJSON(http.StatusOK, gin.H{
 			"message": "Error Ocurred!!",
 		})
 		return
 	}
-
-	db_config_byte, err := ioutil.ReadAll(db_config_file)
+	password_byte, err := ioutil.ReadAll(password_file)
 	if err != nil {
+		//Handle Error
 		c.IndentedJSON(http.StatusOK, gin.H{
 			"message": "Error Ocurred!!",
 		})
 		return
 	}
+	// Convert json format to golang format
+	var pw Passwd
+	json.Unmarshal(password_byte, &pw)
 
-	// Convert json format to golang map format
-	var db_config map[string]string
-	json.Unmarshal(db_config_byte, &db_config)
+	bcryprterr := bcrypt.CompareHashAndPassword([]byte(pw.Key), []byte(newData.Password))
 
-	// db settings
-	cfg := mysql.Config{
-		User:                 db_config["User"],
-		Passwd:               db_config["Passwd"],
-		Net:                  db_config["Net"],
-		Addr:                 db_config["Addr"],
-		DBName:               db_config["DBName"],
-		AllowNativePasswords: true,
-	}
+	if bcryprterr == nil {
+		db, err := OpenDB(c)
+		if err != nil {
+			c.IndentedJSON(http.StatusOK, gin.H{
+				"message": "Insert Error Ocurred!!",
+			})
+			fmt.Println(err)
+			return
+		}
 
-	// open mysql db
-	db, dberror := sql.Open("mysql", cfg.FormatDSN())
-	if dberror != nil {
+		// insert wifi position data
+		result, err := db.Exec("INSERT INTO wifi_data (position, wifi_data) VALUES (?, ?)", newData.Position, string(wifi_data))
+		if err != nil {
+			fmt.Println(err)
+			c.IndentedJSON(http.StatusOK, gin.H{
+				"message": "Insert Error Ocurred!!",
+			})
+			return
+		}
+		id, err := result.LastInsertId()
+		if err != nil {
+			c.IndentedJSON(http.StatusOK, gin.H{
+				"message": "Error Ocurred!!",
+			})
+			return
+		}
+
+		// when insert data sucessed
 		c.IndentedJSON(http.StatusOK, gin.H{
-			"message": "Error Ocurred!!",
+			"status":     "success",
+			"insertedId": id,
 		})
-		return
+	} else {
+		c.IndentedJSON(http.StatusOK, gin.H{
+			"status": "password invalid",
+		})
 	}
 
-	// insert wifi position data
-	result, err := db.Exec("INSERT INTO wifi_data (position, wifi_data) VALUES (?, ?)", newData.Position, string(wifi_data))
-	if err != nil {
-		fmt.Println(err)
-		c.IndentedJSON(http.StatusOK, gin.H{
-			"message": "Insert Error Ocurred!!",
-		})
-		return
-	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		c.IndentedJSON(http.StatusOK, gin.H{
-			"message": "Error Ocurred!!",
-		})
-		return
-	}
-
-	// when insert data sucessed
-	c.IndentedJSON(http.StatusOK, gin.H{
-		"status":     "success",
-		"insertedId": id,
-	})
 }
 
 // Function for estimates your current location using new Wi-Fi signal data.
@@ -147,49 +186,18 @@ func FindPosition(c *gin.Context) {
 	var newData PosData
 	json.Unmarshal([]byte(rawData), &newData)
 
-	// Reading db configuration information file
-	db_config_file, err := os.Open(db_config_path)
+	db, err := OpenDB(c)
 	if err != nil {
 		c.IndentedJSON(http.StatusOK, gin.H{
-			"message": "Error Ocurred!! 2",
+			"message": "Insert Error Ocurred!!",
 		})
-		return
-	}
-
-	db_config_byte, err := ioutil.ReadAll(db_config_file)
-	if err != nil {
-		c.IndentedJSON(http.StatusOK, gin.H{
-			"message": "Error Ocurred!! 3",
-		})
-		return
-	}
-
-	// Convert json format to golang map format
-	var db_config map[string]string
-	json.Unmarshal(db_config_byte, &db_config)
-
-	// db settings
-	cfg := mysql.Config{
-		User:                 db_config["User"],
-		Passwd:               db_config["Passwd"],
-		Net:                  db_config["Net"],
-		Addr:                 db_config["Addr"],
-		DBName:               db_config["DBName"],
-		AllowNativePasswords: true,
-	}
-
-	// open mysql db
-	db, dberror := sql.Open("mysql", cfg.FormatDSN())
-	if dberror != nil {
-		c.IndentedJSON(http.StatusOK, gin.H{
-			"message": "Error Ocurred!! 4",
-		})
+		fmt.Println(err)
 		return
 	}
 
 	// get all wifi position data from db
 	rows, err := db.Query("SELECT * FROM wifi_data")
-	if dberror != nil {
+	if err != nil {
 		c.IndentedJSON(http.StatusOK, gin.H{
 			"message": "Error Ocurred!! 5",
 		})

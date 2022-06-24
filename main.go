@@ -12,5 +12,5 @@ func main() {
 	router.POST("/add", core.AddData)
 	router.POST("/findPosition", core.FindPosition)
 
-	router.Run(":80")
+	router.Run(":8004")
 }
