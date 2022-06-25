@@ -19,23 +19,27 @@ import (
 
 const db_config_path string = "./core/db-config.json"
 
+// struct for json data from client
 type PosData struct {
 	Position string     `json:"position"`
 	Password string     `json:"password"`
 	WifiData []WifiData `json:"wifi_data"`
 }
 
+// wifi data in PosData
 type WifiData struct {
 	Mac string `json:"mac"`
 	Rss int    `json:"rss"`
 }
 
+// data from DB
 type DBData struct {
 	Id       int
 	Position string
 	WifiData []WifiData
 }
 
+// password data struct
 type Passwd struct {
 	Key string `json:"key"`
 }
@@ -130,6 +134,7 @@ func AddData(c *gin.Context) {
 	var pw Passwd
 	json.Unmarshal(password_byte, &pw)
 
+	// compare password with sotred password
 	bcryprterr := bcrypt.CompareHashAndPassword([]byte(pw.Key), []byte(newData.Password))
 
 	if bcryprterr == nil {
@@ -259,6 +264,8 @@ func CalcPos(DBPos []DBData, inputPos PosData, margin float64, ch chan []*result
 				}
 			}
 		}
+
+		// calculate result average and ratio
 		result.Avg = float64(sum) / float64(result.Count)
 		result.Ratio = result.Avg / float64(result.Count)
 		result_list.Push(result)
