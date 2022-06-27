@@ -15,7 +15,7 @@ Client App : https://github.com/chromato99/WiFi_Positining
 
 This is a server implementation of WiFi Positioning.
 
-We used mysql database and implemented two functions except for tests.
+We used mysql database and implemented two functions except for test.
 
 ### Database
 
