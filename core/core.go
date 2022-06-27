@@ -271,8 +271,9 @@ func CalcPos(DBPos []DBData, inputPos PosData, margin float64, ch chan []*result
 
 	largest_count := result_list[0].Count
 	var top_result_arr []*result.ResultData
-	for i, result := 0, result_list.Pop().(*result.ResultData); i < len(result_list) && float64(result.Count) > (float64(largest_count)*margin); i++ {
-		top_result_arr = append(top_result_arr, result)
+	for i, result_len, result_data := 0, len(result_list), result_list.Pop().(*result.ResultData); i < result_len && float64(result_data.Count) > (float64(largest_count)*margin); i++ {
+		top_result_arr = append(top_result_arr, result_data)
+		result_data = result_list.Pop().(*result.ResultData)
 	}
 
 	sort.Slice(top_result_arr, func(i, j int) bool {
