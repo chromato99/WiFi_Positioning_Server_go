@@ -85,7 +85,7 @@ func Test(c *gin.Context) {
 	if err != nil {
 		//Handle Error
 		c.IndentedJSON(http.StatusOK, gin.H{
-			"message": "Error Ocurred!!",
+			"message": "GetRawData error!!",
 		})
 		return
 	}
@@ -104,7 +104,7 @@ func AddData(c *gin.Context) {
 	if err != nil {
 		//Handle Error
 		c.IndentedJSON(http.StatusOK, gin.H{
-			"message": "Error Ocurred!!",
+			"message": "GetRawData error!!",
 		})
 		return
 	}
@@ -118,7 +118,7 @@ func AddData(c *gin.Context) {
 	if err != nil {
 		//Handle Error
 		c.IndentedJSON(http.StatusOK, gin.H{
-			"message": "Error Ocurred!!",
+			"message": "Open PW file error!!",
 		})
 		return
 	}
@@ -126,7 +126,7 @@ func AddData(c *gin.Context) {
 	if err != nil {
 		//Handle Error
 		c.IndentedJSON(http.StatusOK, gin.H{
-			"message": "Error Ocurred!!",
+			"message": "Read PW file error!!",
 		})
 		return
 	}
@@ -141,9 +141,8 @@ func AddData(c *gin.Context) {
 		db, err := OpenDB(c)
 		if err != nil {
 			c.IndentedJSON(http.StatusOK, gin.H{
-				"message": "Insert Error Ocurred!!",
+				"message": "DB open error!!",
 			})
-			fmt.Println(err)
 			return
 		}
 
@@ -152,14 +151,14 @@ func AddData(c *gin.Context) {
 		if err != nil {
 			fmt.Println(err)
 			c.IndentedJSON(http.StatusOK, gin.H{
-				"message": "Insert Error Ocurred!!",
+				"message": "DB insert error!!",
 			})
 			return
 		}
 		id, err := result.LastInsertId()
 		if err != nil {
 			c.IndentedJSON(http.StatusOK, gin.H{
-				"message": "Error Ocurred!!",
+				"message": "Get LastInsertId error!!",
 			})
 			return
 		}
@@ -184,7 +183,7 @@ func FindPosition(c *gin.Context) {
 	if err != nil {
 		//Handle Error
 		c.IndentedJSON(http.StatusOK, gin.H{
-			"message": "Error Ocurred!! 1",
+			"message": "GetRawData error!!",
 		})
 		return
 	}
@@ -194,9 +193,8 @@ func FindPosition(c *gin.Context) {
 	db, err := OpenDB(c)
 	if err != nil {
 		c.IndentedJSON(http.StatusOK, gin.H{
-			"message": "Insert Error Ocurred!!",
+			"message": "DB open error!!",
 		})
-		fmt.Println(err)
 		return
 	}
 
@@ -204,7 +202,7 @@ func FindPosition(c *gin.Context) {
 	rows, err := db.Query("SELECT * FROM wifi_data")
 	if err != nil {
 		c.IndentedJSON(http.StatusOK, gin.H{
-			"message": "Error Ocurred!! 5",
+			"message": "DB select query error!!",
 		})
 		return
 	}
