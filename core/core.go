@@ -28,8 +28,8 @@ type PosData struct {
 
 // wifi data in PosData
 type WifiData struct {
-	Mac string `json:"mac"`
-	Rss int    `json:"rss"`
+	Bssid string `json:"bssid"`
+	Rssi  int    `json:"rssi"`
 }
 
 // data from DB
@@ -255,9 +255,9 @@ func CalcPos(DBPos []DBData, inputPos PosData, margin float64, ch chan []*result
 
 		for _, wifi_data := range pos.WifiData {
 			for _, input_wifi := range inputPos.WifiData {
-				if wifi_data.Mac == input_wifi.Mac {
+				if wifi_data.Bssid == input_wifi.Bssid {
 					result.Count++
-					sum += int(math.Abs(float64(wifi_data.Rss) - float64(input_wifi.Rss)))
+					sum += int(math.Abs(float64(wifi_data.Rssi) - float64(input_wifi.Rssi)))
 					break
 				}
 			}
