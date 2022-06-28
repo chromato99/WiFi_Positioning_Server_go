@@ -11,9 +11,23 @@ https://github.com/chromato99/WiFi_Positioning_Server
 This is a repository for server, and the client implementation can be found at the link below.<br>
 Client App : https://github.com/chromato99/WiFi_Positining 
 
-# Implementation
+# Server App
 
-This is a server implementation of WiFi Positioning.
+This server was written in Go language and developed in the form of RESTful API using Gin Web Framework.
+
+The project structure consists of main, core module, and result module.
+
+Main is written for the entry point when a client connects, and the main processing is written in the core module. In the result module, a struct containing result data and a priority queue used in the result list are defined.
+
+### Run Server
+
+```shell
+cd <project dir>
+go build
+go run .
+```
+
+# Implementation
 
 We used mysql database and implemented two functions except for test.
 
