@@ -22,6 +22,12 @@ Main is written for the entry point when a client connects, and the main process
 ### Run Server
 
 ```shell
+// Set password
+cd <project dir>/generator
+go build password-generator.go
+./password-generator
+
+// Run server
 cd <project dir>
 go build
 go run .
