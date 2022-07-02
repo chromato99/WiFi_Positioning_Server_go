@@ -155,6 +155,9 @@ func AddData(c *gin.Context) {
 			})
 			return
 		}
+
+		db.Close()
+
 		id, err := result.LastInsertId()
 		if err != nil {
 			c.IndentedJSON(http.StatusOK, gin.H{
@@ -206,6 +209,8 @@ func FindPosition(c *gin.Context) {
 		})
 		return
 	}
+
+	db.Close()
 
 	// Append received db data to array
 	var db_pos_arr []DBData
@@ -286,11 +291,7 @@ func CalcPos(DBPos []DBData, inputPos PosData, margin float64, ch chan []*result
 func CalcKnn(result_arr []*result.ResultData, k int) *result.ResultData {
 	k_count := make(map[string]int)
 	for i := 0; i < k && i < len(result_arr); i++ {
-		if _, ok := k_count[result_arr[i].Position]; ok {
-			k_count[result_arr[i].Position]++
-		} else {
-			k_count[result_arr[i].Position] = 1
-		}
+		k_count[result_arr[i].Position] += 1
 	}
 
 	best_result := &result.ResultData{
