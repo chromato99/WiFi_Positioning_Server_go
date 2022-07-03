@@ -228,6 +228,8 @@ func FindPosition(c *gin.Context) {
 		db_pos_arr = append(db_pos_arr, db_pos)
 	}
 
+	rows.Close()
+
 	// The part that calls the position estimation operation
 	ch := make(chan []*result.ResultData)
 	slice_len := int(math.Ceil(float64(len(db_pos_arr)) / 3))
