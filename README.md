@@ -21,16 +21,16 @@ Main is written for the entry point when a client connects, and the main process
 
 ### Run Server
 
-```shell
-// Set password
+```zsh
+# Set password
 cd <project dir>/generator
 go build password-generator.go
 ./password-generator
 
-// Run server
+# Run server with docker
 cd <project dir>
-go build
-go run .
+docker build --tag wifi-pos-sever
+docker run -d -p 8004:8004 wifi-pos-server
 ```
 
 # Implementation
