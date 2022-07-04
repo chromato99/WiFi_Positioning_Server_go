@@ -29,7 +29,7 @@ go build password-generator.go
 
 # Run server with docker
 cd <project dir>
-docker build --tag wifi-pos-sever
+docker build --tag wifi-pos-sever .
 docker run -d -p 8004:8004 wifi-pos-server
 ```
 
