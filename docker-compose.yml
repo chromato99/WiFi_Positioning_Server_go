@@ -1,0 +1,27 @@
+version: '3.8'
+
+volumes:
+  mysql_data:
+
+services:
+  mysql:
+    image: mysql
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./initdb:/docker-entrypoint-initdb.d
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: WiFi_Pos
+      TZ: Asia/Seoul
+  
+  app:
+    build: 
+      dockerfile: ./Dockerfile
+    environment:
+      MYSQL_DB: WiFi_Pos
+      MYSQL_HOST: mysql
+      MYSQL_USER: root
+      MYSQL_PASSWORD: secret
+    ports:
+      - 8004:8004

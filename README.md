@@ -19,6 +19,8 @@ The project structure consists of main, core module, and result module.
 
 Main is written for the entry point when a client connects, and the main processing is written in the core module. In the result module, a struct containing result data and a priority queue used in the result list are defined.
 
+In addition, the server runs in an isolated container environment using docker, and it automatically builds and runs the server using docker compose.
+
 ### Run Server
 
 ```zsh
@@ -27,33 +29,21 @@ cd <project dir>/generator
 go build password-generator.go
 ./password-generator
 
-# Run server with docker
+# Run server with docker compose
 cd <project dir>
-docker build --tag wifi-pos-sever .
-docker run -d -p 8004:8004 wifi-pos-server
+docker compose up -d
 ```
 
 # Implementation
 
-We used mysql database and implemented two functions except for test.
+We used MySQL database and implemented two functions except for test.
 
 ### Database
 
-To implement the database, you need to create a DB and table in the database, and set the connection in the db-config.json file.
+MySQL database is created automatically as set in docker compose. It creates a table like below in MySQL database.
 
 Database Table<br>
 <img src="https://user-images.githubusercontent.com/20539422/175896908-c36c2f7d-cad9-432f-b3b5-f589cffd781f.png" width=70% height="70%">
-
-db-config.json (You can check it in the db-config.template.json file.)
-```json
-{
-    "User": "example",
-    "Passwd": "example",
-    "Net": "tcp",
-    "Addr": "0.0.0.0:3306",
-    "DBName": "WiFi_Pos_go"
-}
-```
 
 ### /add
 
