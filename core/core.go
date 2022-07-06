@@ -17,8 +17,6 @@ import (
 	"github.com/go-sql-driver/mysql"
 )
 
-const db_config_path string = "./core/db-config.json"
-
 // struct for json data from client
 type PosData struct {
 	Position string     `json:"position"`
@@ -45,35 +43,20 @@ type Passwd struct {
 }
 
 func OpenDB(c *gin.Context) (*sql.DB, error) {
-	// Reading db configuration information file
-	db_config_file, err := os.Open(db_config_path)
-	if err != nil {
-		return nil, err
-	}
-
-	db_config_byte, err := ioutil.ReadAll(db_config_file)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert json format to golang map format
-	var db_config map[string]string
-	json.Unmarshal(db_config_byte, &db_config)
 
 	// db settings
 	cfg := mysql.Config{
-		User:                 db_config["User"],
-		Passwd:               db_config["Passwd"],
-		Net:                  db_config["Net"],
-		Addr:                 db_config["Addr"],
-		DBName:               db_config["DBName"],
-		AllowNativePasswords: true,
+		DBName: os.Getenv("MYSQL_DB"),
+		Addr:   os.Getenv("MYSQL_HOST"),
+		User:   os.Getenv("MYSQL_USER"),
+		Passwd: os.Getenv("MYSQL_PASSWORD"),
+		Net:    "tcp",
 	}
 
 	// open mysql db
 	db, dberror := sql.Open("mysql", cfg.FormatDSN())
 	if dberror != nil {
-		return nil, err
+		return nil, dberror
 	}
 
 	return db, nil
@@ -232,15 +215,20 @@ func FindPosition(c *gin.Context) {
 
 	// The part that calls the position estimation operation
 	ch := make(chan []*result.ResultData)
-	slice_len := int(math.Ceil(float64(len(db_pos_arr)) / 3))
-
-	for i := 0; i < 2; i++ {
-		go CalcPos(db_pos_arr[slice_len*i:slice_len*(i+1)], newData, 0.6, ch)
-	}
-	go CalcPos(db_pos_arr[slice_len*2:], newData, 0.6, ch)
-
 	var result_arr []*result.ResultData
-	for i := 0; i < 3; i++ {
+
+	// Create 3 threads only when db_pos_arr is greater than 3
+	if len(db_pos_arr) > 3 {
+		slice_len := int(math.Ceil(float64(len(db_pos_arr)) / 3))
+		for i := 0; i < 2; i++ {
+			go CalcPos(db_pos_arr[slice_len*i:slice_len*(i+1)], newData, 0.6, ch)
+		}
+		go CalcPos(db_pos_arr[slice_len*2:], newData, 0.6, ch)
+		for i := 0; i < 3; i++ {
+			result_arr = append(result_arr, <-ch...)
+		}
+	} else {
+		go CalcPos(db_pos_arr, newData, 0.6, ch)
 		result_arr = append(result_arr, <-ch...)
 	}
 
@@ -276,7 +264,10 @@ func CalcPos(DBPos []DBData, inputPos PosData, margin float64, ch chan []*result
 		result_list.Push(result)
 	}
 
-	largest_count := result_list[0].Count
+	var largest_count int = 0
+	if len(result_list) > 0 {
+		largest_count = result_list[0].Count
+	}
 	var top_result_arr []*result.ResultData
 	for i, result_len := 0, len(result_list); i < result_len; i++ {
 		result_data := result_list.Pop().(*result.ResultData)
