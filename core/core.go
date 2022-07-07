@@ -98,29 +98,30 @@ func AddData(c *gin.Context) {
 
 	// Reading hashed password file
 	password_file, err := os.Open("./core/password.json")
-	if err != nil {
-		//Handle Error
-		c.IndentedJSON(http.StatusOK, gin.H{
-			"message": "Open PW file error!!",
-		})
-		return
-	}
-	password_byte, err := ioutil.ReadAll(password_file)
-	if err != nil {
-		//Handle Error
-		c.IndentedJSON(http.StatusOK, gin.H{
-			"message": "Read PW file error!!",
-		})
-		return
-	}
-	// Convert json format to golang format
-	var pw Passwd
-	json.Unmarshal(password_byte, &pw)
+	var bcrypterr error
 
-	// compare password with sotred password
-	bcryprterr := bcrypt.CompareHashAndPassword([]byte(pw.Key), []byte(newData.Password))
+	if err != nil {
+		// When password is not set
+		bcrypterr = nil
+	} else {
+		password_byte, err := ioutil.ReadAll(password_file)
+		if err != nil {
+			//Handle Error
+			c.IndentedJSON(http.StatusOK, gin.H{
+				"message": "Read PW file error!!",
+			})
+			return
+		}
 
-	if bcryprterr == nil {
+		var pw Passwd
+		// Convert json format to golang format
+		json.Unmarshal(password_byte, &pw)
+
+		// compare password with sotred password
+		bcrypterr = bcrypt.CompareHashAndPassword([]byte(pw.Key), []byte(newData.Password))
+	}
+
+	if bcrypterr == nil {
 		db, err := OpenDB(c)
 		if err != nil {
 			c.IndentedJSON(http.StatusOK, gin.H{

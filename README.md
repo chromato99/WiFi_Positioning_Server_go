@@ -24,7 +24,7 @@ In addition, the server runs in an isolated container environment using docker, 
 ### Run Server
 
 ```zsh
-# Set password
+# Set password (Optional, If this process is omitted, no password is set.)
 cd <project dir>/generator
 go build password-generator.go
 ./password-generator
