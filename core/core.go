@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strconv"
 
 	"github.com/chromato99/WiFi_Positioning_Server_go/result"
 	"golang.org/x/crypto/bcrypt"
@@ -220,12 +221,18 @@ func FindPosition(c *gin.Context) {
 
 	// Create 3 threads only when db_pos_arr is greater than 3
 	if len(db_pos_arr) > 3 {
-		slice_len := int(math.Ceil(float64(len(db_pos_arr)) / 3))
-		for i := 0; i < 2; i++ {
+		thread_num, err := strconv.Atoi(os.Getenv("THREAD_NUM"))
+		if err != nil {
+			fmt.Println(err)
+		}
+		slice_len := int(math.Ceil(float64(len(db_pos_arr)) / float64(thread_num-1)))
+
+		for i := 0; i < thread_num-2; i++ {
 			go CalcPos(db_pos_arr[slice_len*i:slice_len*(i+1)], newData, 0.6, ch)
 		}
 		go CalcPos(db_pos_arr[slice_len*2:], newData, 0.6, ch)
-		for i := 0; i < 3; i++ {
+
+		for i := 0; i < thread_num-1; i++ {
 			result_arr = append(result_arr, <-ch...)
 		}
 	} else {

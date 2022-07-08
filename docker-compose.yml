@@ -19,6 +19,7 @@ services:
     build: 
       dockerfile: ./Dockerfile
     environment:
+      THREAD_NUM: 4
       MYSQL_DB: WiFi_Pos
       MYSQL_HOST: mysql
       MYSQL_USER: root
