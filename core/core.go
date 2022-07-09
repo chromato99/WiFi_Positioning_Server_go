@@ -55,9 +55,9 @@ func OpenDB(c *gin.Context) (*sql.DB, error) {
 	}
 
 	// open mysql db
-	db, dberror := sql.Open("mysql", cfg.FormatDSN())
-	if dberror != nil {
-		return nil, dberror
+	db, dbError := sql.Open("mysql", cfg.FormatDSN())
+	if dbError != nil {
+		return nil, dbError
 	}
 
 	return db, nil
@@ -95,17 +95,17 @@ func AddData(c *gin.Context) {
 	var newData PosData
 	json.Unmarshal([]byte(rawData), &newData)
 	fmt.Println(newData)
-	wifi_data, _ := json.Marshal(newData.WifiData)
+	wifiData, _ := json.Marshal(newData.WifiData)
 
 	// Reading hashed password file
-	password_file, err := os.Open("./core/password.json")
-	var bcrypterr error
+	passwordFile, err := os.Open("./core/password.json")
+	var bcryptErr error
 
 	if err != nil {
 		// When password is not set
-		bcrypterr = nil
+		bcryptErr = nil
 	} else {
-		password_byte, err := ioutil.ReadAll(password_file)
+		passwordByte, err := ioutil.ReadAll(passwordFile)
 		if err != nil {
 			//Handle Error
 			c.IndentedJSON(http.StatusOK, gin.H{
@@ -116,13 +116,13 @@ func AddData(c *gin.Context) {
 
 		var pw Passwd
 		// Convert json format to golang format
-		json.Unmarshal(password_byte, &pw)
+		json.Unmarshal(passwordByte, &pw)
 
 		// compare password with sotred password
-		bcrypterr = bcrypt.CompareHashAndPassword([]byte(pw.Key), []byte(newData.Password))
+		bcryptErr = bcrypt.CompareHashAndPassword([]byte(pw.Key), []byte(newData.Password))
 	}
 
-	if bcrypterr == nil {
+	if bcryptErr == nil {
 		db, err := OpenDB(c)
 		if err != nil {
 			c.IndentedJSON(http.StatusOK, gin.H{
@@ -132,7 +132,7 @@ func AddData(c *gin.Context) {
 		}
 
 		// insert wifi position data
-		result, err := db.Exec("INSERT INTO wifi_data (position, wifi_data) VALUES (?, ?)", newData.Position, string(wifi_data))
+		result, err := db.Exec("INSERT INTO wifi_data (position, wifi_data) VALUES (?, ?)", newData.Position, string(wifiData))
 		if err != nil {
 			fmt.Println(err)
 			c.IndentedJSON(http.StatusOK, gin.H{
@@ -198,59 +198,59 @@ func FindPosition(c *gin.Context) {
 	db.Close()
 
 	// Append received db data to array
-	var db_pos_arr []DBData
+	var dbDatas []DBData
 	for rows.Next() {
-		var db_pos DBData
-		var raw_wifi_data string
-		if err := rows.Scan(&db_pos.Id, &db_pos.Position, &raw_wifi_data); err != nil {
+		var dbData DBData
+		var rawWifiData string
+		if err := rows.Scan(&dbData.Id, &dbData.Position, &rawWifiData); err != nil {
 			fmt.Printf("DB Scan Error : %v", err)
 			c.IndentedJSON(http.StatusOK, gin.H{
 				"message": "DB Scan Error!!",
 			})
 			return
 		}
-		json.Unmarshal([]byte(raw_wifi_data), &db_pos.WifiData)
-		db_pos_arr = append(db_pos_arr, db_pos)
+		json.Unmarshal([]byte(rawWifiData), &dbData.WifiData)
+		dbDatas = append(dbDatas, dbData)
 	}
 
 	rows.Close()
 
 	// The part that calls the position estimation operation
 	ch := make(chan []*result.ResultData)
-	var result_arr []*result.ResultData
+	var results []*result.ResultData
 
 	// Create 3 threads only when db_pos_arr is greater than 3
-	if len(db_pos_arr) > 3 {
-		thread_num, err := strconv.Atoi(os.Getenv("THREAD_NUM"))
+	if len(dbDatas) > 3 {
+		threadNum, err := strconv.Atoi(os.Getenv("THREAD_NUM"))
 		if err != nil {
 			fmt.Println(err)
 		}
-		slice_len := int(math.Ceil(float64(len(db_pos_arr)) / float64(thread_num-1)))
+		sliceLen := int(math.Ceil(float64(len(dbDatas)) / float64(threadNum-1)))
 
-		for i := 0; i < thread_num-2; i++ {
-			go CalcPos(db_pos_arr[slice_len*i:slice_len*(i+1)], newData, 0.6, ch)
+		for i := 0; i < threadNum-2; i++ {
+			go calcPos(dbDatas[sliceLen*i:sliceLen*(i+1)], newData, 0.6, ch)
 		}
-		go CalcPos(db_pos_arr[slice_len*2:], newData, 0.6, ch)
+		go calcPos(dbDatas[sliceLen*2:], newData, 0.6, ch)
 
-		for i := 0; i < thread_num-1; i++ {
-			result_arr = append(result_arr, <-ch...)
+		for i := 0; i < threadNum-1; i++ {
+			results = append(results, <-ch...)
 		}
 	} else {
-		go CalcPos(db_pos_arr, newData, 0.6, ch)
-		result_arr = append(result_arr, <-ch...)
+		go calcPos(dbDatas, newData, 0.6, ch)
+		results = append(results, <-ch...)
 	}
 
-	best_result := CalcKnn(result_arr, 4)
+	bestResult := calcKnn(results, 4)
 
 	// respond best position result
 	c.IndentedJSON(http.StatusOK, gin.H{
-		"Position": best_result.Position,
-		"k_count":  best_result.Count,
+		"Position": bestResult.Position,
+		"k_count":  bestResult.Count,
 	})
 }
 
-func CalcPos(DBPos []DBData, inputPos PosData, margin float64, ch chan []*result.ResultData) {
-	var result_list result.ResultList
+func calcPos(DBPos []DBData, inputPos PosData, margin float64, ch chan []*result.ResultData) {
+	var resultList result.ResultList
 
 	for _, pos := range DBPos {
 		result := &result.ResultData{Id: pos.Id, Position: pos.Position, Count: 0, Avg: 0, Ratio: 0}
@@ -269,36 +269,36 @@ func CalcPos(DBPos []DBData, inputPos PosData, margin float64, ch chan []*result
 		// calculate result average and ratio
 		result.Avg = float64(sum) / float64(result.Count)
 		result.Ratio = result.Avg / float64(result.Count)
-		result_list.Push(result)
+		resultList.Push(result)
 	}
 
-	var largest_count int = 0
-	if len(result_list) > 0 {
-		largest_count = result_list[0].Count
+	var largestCount int = 0
+	if len(resultList) > 0 {
+		largestCount = resultList[0].Count
 	}
-	var top_result_arr []*result.ResultData
-	for i, result_len := 0, len(result_list); i < result_len; i++ {
-		result_data := result_list.Pop().(*result.ResultData)
-		if float64(result_data.Count) <= (float64(largest_count) * margin) {
+	var topResults []*result.ResultData
+	for i, result_len := 0, len(resultList); i < result_len; i++ {
+		result_data := resultList.Pop().(*result.ResultData)
+		if float64(result_data.Count) <= (float64(largestCount) * margin) {
 			break
 		}
-		top_result_arr = append(top_result_arr, result_data)
+		topResults = append(topResults, result_data)
 	}
 
-	sort.Slice(top_result_arr, func(i, j int) bool {
-		return top_result_arr[i].Ratio < top_result_arr[j].Ratio
+	sort.Slice(topResults, func(i, j int) bool {
+		return topResults[i].Ratio < topResults[j].Ratio
 	})
 
-	ch <- top_result_arr
+	ch <- topResults
 }
 
-func CalcKnn(result_arr []*result.ResultData, k int) *result.ResultData {
-	k_count := make(map[string]int)
-	for i := 0; i < k && i < len(result_arr); i++ {
-		k_count[result_arr[i].Position] += 1
+func calcKnn(results []*result.ResultData, k int) *result.ResultData {
+	kCount := make(map[string]int)
+	for i := 0; i < k && i < len(results); i++ {
+		kCount[results[i].Position] += 1
 	}
 
-	best_result := &result.ResultData{
+	bestResult := &result.ResultData{
 		Id:       0,
 		Position: "not found",
 		Count:    0,
@@ -306,21 +306,21 @@ func CalcKnn(result_arr []*result.ResultData, k int) *result.ResultData {
 		Ratio:    0,
 	}
 
-	for key, value := range k_count {
-		if value > best_result.Count {
-			best_result.Count = value
-			best_result.Position = key
-		} else if value == best_result.Count && key == result_arr[0].Position {
-			best_result.Count = value
-			best_result.Position = key
+	for key, value := range kCount {
+		if value > bestResult.Count {
+			bestResult.Count = value
+			bestResult.Position = key
+		} else if value == bestResult.Count && key == results[0].Position {
+			bestResult.Count = value
+			bestResult.Position = key
 		}
 	}
 
-	if k < len(k_count) {
-		fmt.Println(result_arr[:k])
+	if k < len(kCount) {
+		fmt.Println(results[:k])
 	} else {
-		fmt.Println(result_arr)
+		fmt.Println(results)
 	}
 
-	return best_result
+	return bestResult
 }

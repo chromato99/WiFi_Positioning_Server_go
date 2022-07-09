@@ -12,11 +12,11 @@ import (
 )
 
 func main() {
-	thread_num, err := strconv.Atoi(os.Getenv("THREAD_NUM"))
+	threadNum, err := strconv.Atoi(os.Getenv("THREAD_NUM"))
 	if err != nil {
 		fmt.Println(err)
 	}
-	runtime.GOMAXPROCS(thread_num)
+	runtime.GOMAXPROCS(threadNum)
 
 	router := gin.Default()
 	router.POST("/test", core.Test)
