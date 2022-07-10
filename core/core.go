@@ -43,7 +43,13 @@ type Passwd struct {
 	Key string `json:"key"`
 }
 
-func OpenDB(c *gin.Context) (*sql.DB, error) {
+/*
+Parameter : c - Gin web framework context
+Return value : db - DB opened sql.DB struct.
+
+Feature - Open the DB with env value and return sql.DB struct
+*/
+func openDB(c *gin.Context) (*sql.DB, error) {
 
 	// db settings
 	cfg := mysql.Config{
@@ -123,7 +129,7 @@ func AddData(c *gin.Context) {
 	}
 
 	if bcryptErr == nil {
-		db, err := OpenDB(c)
+		db, err := openDB(c)
 		if err != nil {
 			c.IndentedJSON(http.StatusOK, gin.H{
 				"message": "DB open error!!",
@@ -167,7 +173,7 @@ func AddData(c *gin.Context) {
 // Function for estimates your current location using new Wi-Fi signal data.
 func FindPosition(c *gin.Context) {
 	// Process the received json data
-	rawData, err := c.GetRawData()
+	rawInputData, err := c.GetRawData()
 	if err != nil {
 		//Handle Error
 		c.IndentedJSON(http.StatusOK, gin.H{
@@ -175,10 +181,10 @@ func FindPosition(c *gin.Context) {
 		})
 		return
 	}
-	var newData PosData
-	json.Unmarshal([]byte(rawData), &newData)
+	var inputData PosData
+	json.Unmarshal([]byte(rawInputData), &inputData)
 
-	db, err := OpenDB(c)
+	db, err := openDB(c)
 	if err != nil {
 		c.IndentedJSON(http.StatusOK, gin.H{
 			"message": "DB open error!!",
@@ -198,7 +204,7 @@ func FindPosition(c *gin.Context) {
 	db.Close()
 
 	// Append received db data to array
-	var dbDatas []DBData
+	var dbDataList []DBData
 	for rows.Next() {
 		var dbData DBData
 		var rawWifiData string
@@ -210,7 +216,7 @@ func FindPosition(c *gin.Context) {
 			return
 		}
 		json.Unmarshal([]byte(rawWifiData), &dbData.WifiData)
-		dbDatas = append(dbDatas, dbData)
+		dbDataList = append(dbDataList, dbData)
 	}
 
 	rows.Close()
@@ -220,23 +226,23 @@ func FindPosition(c *gin.Context) {
 	var results []*result.ResultData
 
 	// Create 3 threads only when db_pos_arr is greater than 3
-	if len(dbDatas) > 3 {
+	if len(dbDataList) > 3 {
 		threadNum, err := strconv.Atoi(os.Getenv("THREAD_NUM"))
 		if err != nil {
 			fmt.Println(err)
 		}
-		sliceLen := int(math.Ceil(float64(len(dbDatas)) / float64(threadNum-1)))
+		sliceLen := int(math.Ceil(float64(len(dbDataList)) / float64(threadNum-1)))
 
 		for i := 0; i < threadNum-2; i++ {
-			go calcPos(dbDatas[sliceLen*i:sliceLen*(i+1)], newData, 0.6, ch)
+			go calcPos(dbDataList[sliceLen*i:sliceLen*(i+1)], inputData, 0.6, ch)
 		}
-		go calcPos(dbDatas[sliceLen*2:], newData, 0.6, ch)
+		go calcPos(dbDataList[sliceLen*2:], inputData, 0.6, ch)
 
 		for i := 0; i < threadNum-1; i++ {
 			results = append(results, <-ch...)
 		}
 	} else {
-		go calcPos(dbDatas, newData, 0.6, ch)
+		go calcPos(dbDataList, inputData, 0.6, ch)
 		results = append(results, <-ch...)
 	}
 
@@ -249,15 +255,24 @@ func FindPosition(c *gin.Context) {
 	})
 }
 
-func calcPos(DBPos []DBData, inputPos PosData, margin float64, ch chan []*result.ResultData) {
+/*
+Parameter dbDataList : Position and wifi data stored in database.
+Parameter inputData : Requested wifi data to find position.
+Parameter margin : The range of data to compare from the data with the most overlapping bssids (because the more bssids are the same, the higher the accuracy)
+Parameter ch : The channel to pass the return value as the function is called as a goroutine.
+Return (by chan) topResults : Array of result values that are most similar and within the margin range when similarity is calculated.
+
+Feature : It calculates the similarity between input data and db data and returns a list of top results within the margin range.
+*/
+func calcPos(dbDataList []DBData, inputData PosData, margin float64, ch chan []*result.ResultData) {
 	var resultList result.ResultList
 
-	for _, pos := range DBPos {
+	for _, pos := range dbDataList {
 		result := &result.ResultData{Id: pos.Id, Position: pos.Position, Count: 0, Avg: 0, Ratio: 0}
 		var sum int = 0
 
 		for _, wifi_data := range pos.WifiData {
-			for _, input_wifi := range inputPos.WifiData {
+			for _, input_wifi := range inputData.WifiData {
 				if wifi_data.Bssid == input_wifi.Bssid {
 					result.Count++
 					sum += int(math.Abs(float64(wifi_data.Rssi) - float64(input_wifi.Rssi)))
@@ -292,12 +307,21 @@ func calcPos(DBPos []DBData, inputPos PosData, margin float64, ch chan []*result
 	ch <- topResults
 }
 
+/*
+Parameter results : List of result values calculated in calcPos.
+Parameter k : The value of how many top values to compare.
+Return value bestResult : The most likely result of the current user's location.
+
+Feature : Among the results returned by calcPos, it compares k number of top results and returns the position result that matches the most.
+*/
 func calcKnn(results []*result.ResultData, k int) *result.ResultData {
+	// Storing the number of same results in kCount map
 	kCount := make(map[string]int)
 	for i := 0; i < k && i < len(results); i++ {
 		kCount[results[i].Position] += 1
 	}
 
+	// Init bestResult struct
 	bestResult := &result.ResultData{
 		Id:       0,
 		Position: "not found",
@@ -306,6 +330,7 @@ func calcKnn(results []*result.ResultData, k int) *result.ResultData {
 		Ratio:    0,
 	}
 
+	// Find the position with the highest value in kCount
 	for key, value := range kCount {
 		if value > bestResult.Count {
 			bestResult.Count = value
@@ -316,6 +341,7 @@ func calcKnn(results []*result.ResultData, k int) *result.ResultData {
 		}
 	}
 
+	// Print log
 	if k < len(kCount) {
 		fmt.Println(results[:k])
 	} else {
