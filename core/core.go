@@ -71,17 +71,12 @@ func openDB(c *gin.Context) (*sql.DB, error) {
 
 // Returns the received Wi-Fi data for the test.
 func Test(c *gin.Context) {
-	rawData, err := c.GetRawData()
-	if err != nil {
-		//Handle Error
-		c.IndentedJSON(http.StatusOK, gin.H{
-			"message": "GetRawData error!!",
-		})
+	var inputData PosData
+	if err := c.ShouldBindJSON(&inputData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	var data PosData
-	json.Unmarshal([]byte(rawData), &data)
-	doc, _ := json.Marshal(data.WifiData)
+	doc, _ := json.Marshal(inputData.WifiData)
 
 	c.IndentedJSON(http.StatusOK, string(doc))
 }
@@ -89,19 +84,13 @@ func Test(c *gin.Context) {
 // Add wifi location data to database
 func AddData(c *gin.Context) {
 
-	// Process the received json data
-	rawData, err := c.GetRawData()
-	if err != nil {
-		//Handle Error
-		c.IndentedJSON(http.StatusOK, gin.H{
-			"message": "GetRawData error!!",
-		})
+	var inputData PosData
+	if err := c.ShouldBindJSON(&inputData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	var newData PosData
-	json.Unmarshal([]byte(rawData), &newData)
-	fmt.Println(newData)
-	wifiData, _ := json.Marshal(newData.WifiData)
+	fmt.Println(inputData)
+	wifiData, _ := json.Marshal(inputData.WifiData)
 
 	// Reading hashed password file
 	passwordFile, err := os.Open("./core/password.json")
@@ -125,7 +114,7 @@ func AddData(c *gin.Context) {
 		json.Unmarshal(passwordByte, &pw)
 
 		// compare password with sotred password
-		bcryptErr = bcrypt.CompareHashAndPassword([]byte(pw.Key), []byte(newData.Password))
+		bcryptErr = bcrypt.CompareHashAndPassword([]byte(pw.Key), []byte(inputData.Password))
 	}
 
 	if bcryptErr == nil {
@@ -138,7 +127,7 @@ func AddData(c *gin.Context) {
 		}
 
 		// insert wifi position data
-		result, err := db.Exec("INSERT INTO wifi_data (position, wifi_data) VALUES (?, ?)", newData.Position, string(wifiData))
+		result, err := db.Exec("INSERT INTO wifi_data (position, wifi_data) VALUES (?, ?)", inputData.Position, string(wifiData))
 		if err != nil {
 			fmt.Println(err)
 			c.IndentedJSON(http.StatusOK, gin.H{
@@ -173,16 +162,11 @@ func AddData(c *gin.Context) {
 // Function for estimates your current location using new Wi-Fi signal data.
 func FindPosition(c *gin.Context) {
 	// Process the received json data
-	rawInputData, err := c.GetRawData()
-	if err != nil {
-		//Handle Error
-		c.IndentedJSON(http.StatusOK, gin.H{
-			"message": "GetRawData error!!",
-		})
+	var inputData PosData
+	if err := c.ShouldBindJSON(&inputData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	var inputData PosData
-	json.Unmarshal([]byte(rawInputData), &inputData)
 
 	db, err := openDB(c)
 	if err != nil {
